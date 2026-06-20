@@ -1,5 +1,3 @@
--- MacLib - Simple Working Version
-
 local MacLib = {
 	Options = {}
 }
