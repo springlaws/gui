@@ -71,6 +71,14 @@ end
 
 --// Library Functions
 function MacLib:Window(Settings)
+	wait(0.5) -- Даём время на загрузку
+	macLib.Enabled = true
+	macLib.ResetOnSpawn = false
+	
+	print("[MacLib] GUI Parent:", macLib.Parent.Name)
+	print("[MacLib] GUI Enabled:", macLib.Enabled)
+
+	local notifications = Instance.new("Frame")
 	local WindowFunctions = {Settings = Settings}
 	if Settings.AcrylicBlur ~= nil then
 		acrylicBlur = Settings.AcrylicBlur
