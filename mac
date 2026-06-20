@@ -1,0 +1,2272 @@
+--[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║         NEBULA UI LIBRARY v2.1                          ║
+    ║    + Keybind Manager + Advanced Color Picker            ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
+
+local NebulaUI = {
+    Options = {},
+    Folder = "NebulaUI",
+    
+    -- ═══ ТЕМА ═══
+    Theme = {
+        Background       = Color3.fromRGB(12, 12, 20),
+        BackgroundLight  = Color3.fromRGB(18, 18, 30),
+        Surface          = Color3.fromRGB(22, 22, 38),
+        SurfaceHover     = Color3.fromRGB(28, 28, 48),
+        SurfaceActive    = Color3.fromRGB(35, 35, 58),
+        
+        Accent           = Color3.fromRGB(124, 58, 237),
+        AccentLight      = Color3.fromRGB(147, 97, 248),
+        AccentDark       = Color3.fromRGB(91, 33, 182),
+        AccentGlow       = Color3.fromRGB(167, 139, 250),
+        
+        TextPrimary      = Color3.fromRGB(245, 245, 250),
+        TextSecondary    = Color3.fromRGB(160, 160, 180),
+        TextMuted        = Color3.fromRGB(100, 100, 130),
+        
+        Border           = Color3.fromRGB(45, 45, 70),
+        BorderLight      = Color3.fromRGB(60, 60, 90),
+        
+        Success          = Color3.fromRGB(34, 197, 94),
+        Warning          = Color3.fromRGB(250, 204, 21),
+        Error            = Color3.fromRGB(239, 68, 68),
+        Info             = Color3.fromRGB(59, 130, 246),
+        
+        ToggleOn         = Color3.fromRGB(124, 58, 237),
+        ToggleOff        = Color3.fromRGB(55, 55, 80),
+        
+        SliderTrack      = Color3.fromRGB(35, 35, 58),
+        SliderFill       = Color3.fromRGB(124, 58, 237),
+        
+        NotificationBG   = Color3.fromRGB(18, 18, 30),
+        DialogOverlay    = Color3.fromRGB(5, 5, 10),
+    },
+    
+    -- ═══ ШРИФТЫ ═══
+    Fonts = {
+        Regular  = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular),
+        Medium   = Font.new("rbxassetid://12187365364", Enum.FontWeight.Medium),
+        SemiBold = Font.new("rbxassetid://12187365364", Enum.FontWeight.SemiBold),
+        Bold     = Font.new("rbxassetid://12187365364", Enum.FontWeight.Bold),
+    },
+    
+    -- ═══ АНИМАЦИИ ═══
+    Animation = {
+        Duration     = 0.25,
+        Fast         = 0.15,
+        Slow         = 0.4,
+        EasingStyle  = Enum.EasingStyle.Quint,
+        EasingOut    = Enum.EasingDirection.Out,
+        EasingIn     = Enum.EasingDirection.In,
+    },
+    
+    -- ═══ ТЕМЫ ЦВЕТОВ (для Theme Picker) ═══
+    Themes = {
+        ["Purple"]  = Color3.fromRGB(124, 58, 237),
+        ["Blue"]    = Color3.fromRGB(59, 130, 246),
+        ["Cyan"]    = Color3.fromRGB(6, 182, 212),
+        ["Green"]   = Color3.fromRGB(34, 197, 94),
+        ["Rose"]    = Color3.fromRGB(244, 63, 94),
+        ["Orange"]  = Color3.fromRGB(249, 115, 22),
+        ["Pink"]    = Color3.fromRGB(236, 72, 153),
+        ["Yellow"]  = Color3.fromRGB(234, 179, 8),
+    },
+}
+
+-- ═══════════════════════════════════════════════════
+-- СЕРВИСЫ
+-- ═══════════════════════════════════════════════════
+
+local Services = {}
+local function GetService(name)
+    if not Services[name] then
+        Services[name] = cloneref and cloneref(game:GetService(name)) or game:GetService(name)
+    end
+    return Services[name]
+end
+
+local TweenService     = GetService("TweenService")
+local RunService       = GetService("RunService")
+local HttpService      = GetService("HttpService")
+local ContentProvider  = GetService("ContentProvider")
+local UserInputService = GetService("UserInputService")
+local Players          = GetService("Players")
+
+local LocalPlayer = Players.LocalPlayer
+local isStudio    = RunService:IsStudio()
+
+-- ═══════════════════════════════════════════════════
+-- УТИЛИТЫ
+-- ═══════════════════════════════════════════════════
+
+local T = NebulaUI.Theme
+local A = NebulaUI.Animation
+local F = NebulaUI.Fonts
+
+-- Создание Instance с пропсами
+local function Create(className, props)
+    local inst = Instance.new(className)
+    local parent = props and props.Parent
+    
+    if props then
+        for k, v in pairs(props) do
+            if k ~= "Parent" and k ~= "Children" then
+                pcall(function() inst[k] = v end)
+            end
+        end
+        if props.Children then
+            for _, child in ipairs(props.Children) do
+                child.Parent = inst
+            end
+        end
+    end
+    
+    if parent then inst.Parent = parent end
+    return inst
+end
+
+-- Твин-анимация
+local function Tween(instance, properties, duration, style, direction)
+    local info = TweenInfo.new(
+        duration or A.Duration,
+        style or A.EasingStyle,
+        direction or A.EasingOut
+    )
+    local t = TweenService:Create(instance, info, properties)
+    t:Play()
+    return t
+end
+
+-- Lerp цвета
+local function LerpColor(a, b, t)
+    return Color3.new(
+        a.R + (b.R - a.R) * t,
+        a.G + (b.G - a.G) * t,
+        a.B + (b.B - a.B) * t
+    )
+end
+
+-- RGB → HSV
+local function RGBtoHSV(color)
+    return color:ToHSV()
+end
+
+-- HSV → RGB
+local function HSVtoRGB(h, s, v)
+    return Color3.fromHSV(h, s, v)
+end
+
+-- Hex → Color3
+local function HexToColor(hex)
+    hex = hex:gsub("#", ""):upper()
+    if #hex ~= 6 then return Color3.new(1, 1, 1) end
+    local r = tonumber(hex:sub(1, 2), 16) or 0
+    local g = tonumber(hex:sub(3, 4), 16) or 0
+    local b = tonumber(hex:sub(5, 6), 16) or 0
+    return Color3.fromRGB(r, g, b)
+end
+
+-- Color3 → Hex
+local function ColorToHex(color)
+    return string.format("#%02X%02X%02X",
+        math.floor(color.R * 255 + 0.5),
+        math.floor(color.G * 255 + 0.5),
+        math.floor(color.B * 255 + 0.5)
+    )
+end
+
+-- Яркость цвета (для определения цвета текста)
+local function GetLuminance(color)
+    return 0.299 * color.R + 0.587 * color.G + 0.114 * color.B
+end
+
+-- ═══════════════════════════════════════════════════
+-- СОЗДАНИЕ GUI
+-- ═══════════════════════════════════════════════════
+
+local function CreateScreenGui(name)
+    local gui = Create("ScreenGui", {
+        Name = name or "NebulaUI",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 2147483647,
+        ScreenInsets = Enum.ScreenInsets.None,
+    })
+    
+    local parent
+    if isStudio then
+        parent = LocalPlayer:FindFirstChild("PlayerGui")
+    else
+        parent = (gethui and gethui())
+            or (cloneref and cloneref(GetService("CoreGui"))
+            or GetService("CoreGui"))
+    end
+    
+    gui.Parent = parent
+    return gui
+end
+
+-- ═══════════════════════════════════════════════════
+-- KEYBIND MANAGER
+-- ═══════════════════════════════════════════════════
+
+local KeybindManager = {}
+KeybindManager.__index = KeybindManager
+
+function KeybindManager.new()
+    local self = setmetatable({}, KeybindManager)
+    self._binds = {}        -- { id = { key, callback, held, active } }
+    self._gui = nil
+    self._visible = false
+    self._connections = {}
+    
+    -- Слушаем ввод
+    local conn1 = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        
+        for id, bind in pairs(self._binds) do
+            if bind.key then
+                local match = (input.KeyCode == bind.key) 
+                    or (input.UserInputType == bind.key)
+                    
+                if match and bind.active then
+                    if bind.callback then
+                        task.spawn(bind.callback, true, bind.key)
+                    end
+                    bind.heldState = true
+                end
+            end
+        end
+    end)
+    
+    local conn2 = UserInputService.InputEnded:Connect(function(input)
+        for id, bind in pairs(self._binds) do
+            if bind.key then
+                local match = (input.KeyCode == bind.key)
+                    or (input.UserInputType == bind.key)
+                    
+                if match and bind.active and bind.heldState then
+                    if bind.onReleased then
+                        task.spawn(bind.onReleased, bind.key)
+                    end
+                    bind.heldState = false
+                end
+            end
+        end
+    end)
+    
+    table.insert(self._connections, conn1)
+    table.insert(self._connections, conn2)
+    
+    return self
+end
+
+-- Регистрация биндинга
+function KeybindManager:Register(id, options)
+    self._binds[id] = {
+        key         = options.Key,
+        callback    = options.Callback,
+        onReleased  = options.OnReleased,
+        name        = options.Name or id,
+        description = options.Description or "",
+        active      = options.Active ~= false,
+        heldState   = false,
+        category    = options.Category or "General",
+    }
+    
+    if self._listFrame then
+        self:_RefreshList()
+    end
+    
+    return {
+        SetKey = function(key)
+            self._binds[id].key = key
+        end,
+        SetActive = function(state)
+            self._binds[id].active = state
+        end,
+        GetKey = function()
+            return self._binds[id].key
+        end,
+        Unregister = function()
+            self._binds[id] = nil
+            if self._listFrame then self:_RefreshList() end
+        end,
+    }
+end
+
+-- Обновление биндинга
+function KeybindManager:SetBind(id, key)
+    if self._binds[id] then
+        self._binds[id].key = key
+        if self._listFrame then self:_RefreshList() end
+    end
+end
+
+-- Создание GUI для менеджера
+function KeybindManager:CreateGui()
+    local gui = CreateScreenGui("NebulaKeybindManager")
+    self._gui = gui
+    
+    -- Затемнение фона
+    local overlay = Create("Frame", {
+        Name = "Overlay",
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.4,
+        Size = UDim2.fromScale(1, 1),
+        Visible = false,
+        ZIndex = 100,
+        Parent = gui,
+    })
+    
+    self._overlay = overlay
+    
+    -- Основной фрейм
+    local mainFrame = Create("Frame", {
+        Name = "KeybindManager",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = T.Background,
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(520, 520),
+        ZIndex = 101,
+        Visible = false,
+        Parent = gui,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 16),
+        Parent = mainFrame,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.5,
+        Parent = mainFrame,
+    })
+    
+    self._mainFrame = mainFrame
+    
+    -- Шапка
+    local header = Create("Frame", {
+        Name = "Header",
+        BackgroundColor3 = T.BackgroundLight,
+        Size = UDim2.new(1, 0, 0, 54),
+        ZIndex = 102,
+        Parent = mainFrame,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 16),
+        Parent = header,
+    })
+    
+    -- Нижний прямой край у header
+    Create("Frame", {
+        BackgroundColor3 = T.BackgroundLight,
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.new(1, 0, 0.5, 0),
+        ZIndex = 102,
+        Parent = header,
+    })
+    
+    -- Иконка
+    Create("TextLabel", {
+        Font = F.Bold,
+        Text = "⌨",
+        TextColor3 = T.AccentLight,
+        TextSize = 20,
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 20, 0.5, 0),
+        Size = UDim2.fromOffset(30, 30),
+        ZIndex = 103,
+        Parent = header,
+    })
+    
+    Create("TextLabel", {
+        Font = F.SemiBold,
+        Text = "Keybind Manager",
+        TextColor3 = T.TextPrimary,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AnchorPoint = Vector2.new(0, 0.5),
+        AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 56, 0.5, 0),
+        Size = UDim2.new(0, 0, 0, 20),
+        ZIndex = 103,
+        Parent = header,
+    })
+    
+    -- Кнопка закрытия
+    local closeBtn = Create("TextButton", {
+        Font = F.Medium,
+        Text = "✕",
+        TextColor3 = T.TextMuted,
+        TextSize = 16,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -18, 0.5, 0),
+        Size = UDim2.fromOffset(30, 30),
+        ZIndex = 103,
+        Parent = header,
+    })
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Hide()
+    end)
+    
+    closeBtn.MouseEnter:Connect(function()
+        Tween(closeBtn, { TextColor3 = T.Error }, A.Fast)
+    end)
+    
+    closeBtn.MouseLeave:Connect(function()
+        Tween(closeBtn, { TextColor3 = T.TextMuted }, A.Fast)
+    end)
+    
+    -- Поиск
+    local searchFrame = Create("Frame", {
+        BackgroundColor3 = T.Surface,
+        Position = UDim2.new(0, 16, 0, 62),
+        Size = UDim2.new(1, -32, 0, 36),
+        ZIndex = 102,
+        Parent = mainFrame,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = searchFrame,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.7,
+        Parent = searchFrame,
+    })
+    
+    Create("TextLabel", {
+        Font = F.Medium,
+        Text = "🔍",
+        TextSize = 13,
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 10, 0.5, 0),
+        Size = UDim2.fromOffset(20, 20),
+        ZIndex = 103,
+        Parent = searchFrame,
+    })
+    
+    local searchBox = Create("TextBox", {
+        Font = F.Regular,
+        Text = "",
+        PlaceholderText = "Поиск биндинга...",
+        PlaceholderColor3 = T.TextMuted,
+        TextColor3 = T.TextPrimary,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundTransparency = 1,
+        ClearTextOnFocus = false,
+        Position = UDim2.new(0, 36, 0.5, 0),
+        Size = UDim2.new(1, -50, 0, 30),
+        ZIndex = 103,
+        Parent = searchFrame,
+    })
+    
+    -- Список биндингов
+    local listScroll = Create("ScrollingFrame", {
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        ScrollBarImageTransparency = 0.7,
+        ScrollBarThickness = 3,
+        BottomImage = "",
+        TopImage = "",
+        CanvasSize = UDim2.new(),
+        Position = UDim2.new(0, 10, 0, 108),
+        Size = UDim2.new(1, -20, 1, -116),
+        ZIndex = 102,
+        Parent = mainFrame,
+    })
+    
+    Create("UIPadding", {
+        PaddingTop = UDim.new(0, 4),
+        PaddingBottom = UDim.new(0, 10),
+        PaddingLeft = UDim.new(0, 6),
+        PaddingRight = UDim.new(0, 6),
+        Parent = listScroll,
+    })
+    
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = listScroll,
+    })
+    
+    self._listFrame = listScroll
+    self._searchBox = searchBox
+    
+    -- Поиск
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        self:_RefreshList()
+    end)
+    
+    self:_RefreshList()
+    
+    return gui
+end
+
+-- Обновление списка
+function KeybindManager:_RefreshList()
+    if not self._listFrame then return end
+    
+    -- Удаляем старые
+    for _, child in ipairs(self._listFrame:GetChildren()) do
+        if not child:IsA("UIComponent") and not child:IsA("UIPadding") and not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+    
+    local searchTerm = (self._searchBox and self._searchBox.Text:lower()) or ""
+    
+    -- Группируем по категориям
+    local categories = {}
+    for id, bind in pairs(self._binds) do
+        if searchTerm == "" or bind.name:lower():find(searchTerm, 1, true) then
+            local cat = bind.category or "General"
+            if not categories[cat] then
+                categories[cat] = {}
+            end
+            table.insert(categories[cat], { id = id, data = bind })
+        end
+    end
+    
+    local layoutOrder = 0
+    
+    for catName, binds in pairs(categories) do
+        layoutOrder += 1
+        
+        -- Категория
+        local catLabel = Create("TextLabel", {
+            Font = F.SemiBold,
+            Text = catName:upper(),
+            TextColor3 = T.AccentLight,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            LayoutOrder = layoutOrder,
+            Size = UDim2.new(1, 0, 0, 18),
+            ZIndex = 103,
+            Parent = self._listFrame,
+        })
+        
+        Create("UIPadding", {
+            PaddingLeft = UDim.new(0, 6),
+            Parent = catLabel,
+        })
+        
+        for _, bindInfo in ipairs(binds) do
+            layoutOrder += 1
+            self:_CreateBindItem(bindInfo.id, bindInfo.data, layoutOrder)
+        end
+    end
+    
+    -- Пусто
+    if next(categories) == nil then
+        Create("TextLabel", {
+            Font = F.Medium,
+            Text = "Биндинги не найдены",
+            TextColor3 = T.TextMuted,
+            TextSize = 13,
+            AnchorPoint = Vector2.new(0.5, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, 0, 0, 20),
+            Size = UDim2.new(0, 0, 0, 0),
+            ZIndex = 103,
+            Parent = self._listFrame,
+        })
+    end
+end
+
+-- Создание элемента биндинга
+function KeybindManager:_CreateBindItem(id, bind, layoutOrder)
+    local item = Create("Frame", {
+        Name = "Bind_" .. tostring(id),
+        BackgroundColor3 = T.Surface,
+        LayoutOrder = layoutOrder,
+        Size = UDim2.new(1, 0, 0, 54),
+        ZIndex = 103,
+        Parent = self._listFrame,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = item,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.75,
+        Parent = item,
+    })
+    
+    -- Активность
+    local activeIndicator = Create("Frame", {
+        Name = "ActiveDot",
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = bind.active and T.Success or T.Error,
+        Position = UDim2.new(0, 12, 0.5, 0),
+        Size = UDim2.fromOffset(6, 6),
+        ZIndex = 104,
+        Parent = item,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = activeIndicator,
+    })
+    
+    -- Название
+    Create("TextLabel", {
+        Font = F.SemiBold,
+        Text = bind.name,
+        TextColor3 = T.TextPrimary,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        AnchorPoint = Vector2.new(0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 26, 0, 10),
+        Size = UDim2.new(0.55, -30, 0, 0),
+        ZIndex = 104,
+        Parent = item,
+    })
+    
+    -- Описание
+    if bind.description ~= "" then
+        Create("TextLabel", {
+            Font = F.Regular,
+            Text = bind.description,
+            TextColor3 = T.TextMuted,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            AnchorPoint = Vector2.new(0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 26, 0, 28),
+            Size = UDim2.new(0.55, -30, 0, 0),
+            ZIndex = 104,
+            Parent = item,
+        })
+    end
+    
+    -- Кнопка клавиши
+    local keyBtn = Create("TextButton", {
+        Font = F.Medium,
+        Text = bind.key and bind.key.Name or "—",
+        TextColor3 = T.AccentLight,
+        TextSize = 12,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = T.BackgroundLight,
+        Position = UDim2.new(1, -46, 0.5, 0),
+        Size = UDim2.fromOffset(80, 30),
+        AutoButtonColor = false,
+        ZIndex = 104,
+        Parent = item,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 8),
+        Parent = keyBtn,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Accent,
+        Transparency = 0.7,
+        Parent = keyBtn,
+    })
+    
+    -- Кнопка сброса
+    local clearBtn = Create("TextButton", {
+        Font = F.Medium,
+        Text = "✕",
+        TextColor3 = T.TextMuted,
+        TextSize = 14,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -14, 0.5, 0),
+        Size = UDim2.fromOffset(24, 24),
+        ZIndex = 104,
+        Parent = item,
+    })
+    
+    -- Переключатель активности
+    local toggleBtn = Create("TextButton", {
+        Font = F.Regular,
+        Text = bind.active and "ON" or "OFF",
+        TextColor3 = bind.active and T.Success or T.Error,
+        TextSize = 11,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -140, 0.5, 0),
+        Size = UDim2.fromOffset(36, 24),
+        ZIndex = 104,
+        Parent = item,
+    })
+    
+    local isBinding = false
+    
+    keyBtn.MouseButton1Click:Connect(function()
+        if isBinding then return end
+        isBinding = true
+        
+        keyBtn.Text = "..."
+        Tween(keyBtn, { BackgroundColor3 = T.Accent }, A.Fast)
+        
+        local conn
+        conn = UserInputService.InputBegan:Connect(function(input, gpe)
+            if input.KeyCode == Enum.KeyCode.Escape then
+                isBinding = false
+                keyBtn.Text = bind.key and bind.key.Name or "—"
+                Tween(keyBtn, { BackgroundColor3 = T.BackgroundLight }, A.Fast)
+                conn:Disconnect()
+                return
+            end
+            
+            local newKey
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                newKey = input.KeyCode
+            elseif input.UserInputType == Enum.UserInputType.MouseButton1 
+                or input.UserInputType == Enum.UserInputType.MouseButton2 then
+                newKey = input.UserInputType
+            end
+            
+            if newKey then
+                bind.key = newKey
+                keyBtn.Text = newKey.Name
+                isBinding = false
+                Tween(keyBtn, { BackgroundColor3 = T.BackgroundLight }, A.Fast)
+                conn:Disconnect()
+            end
+        end)
+    end)
+    
+    keyBtn.MouseEnter:Connect(function()
+        if not isBinding then
+            Tween(keyBtn, { BackgroundColor3 = T.SurfaceHover }, A.Fast)
+        end
+    end)
+    
+    keyBtn.MouseLeave:Connect(function()
+        if not isBinding then
+            Tween(keyBtn, { BackgroundColor3 = T.BackgroundLight }, A.Fast)
+        end
+    end)
+    
+    clearBtn.MouseButton1Click:Connect(function()
+        bind.key = nil
+        keyBtn.Text = "—"
+    end)
+    
+    clearBtn.MouseEnter:Connect(function()
+        Tween(clearBtn, { TextColor3 = T.Error }, A.Fast)
+    end)
+    
+    clearBtn.MouseLeave:Connect(function()
+        Tween(clearBtn, { TextColor3 = T.TextMuted }, A.Fast)
+    end)
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        bind.active = not bind.active
+        toggleBtn.Text = bind.active and "ON" or "OFF"
+        Tween(toggleBtn, { 
+            TextColor3 = bind.active and T.Success or T.Error 
+        }, A.Fast)
+        Tween(activeIndicator, {
+            BackgroundColor3 = bind.active and T.Success or T.Error
+        }, A.Fast)
+    end)
+end
+
+-- Показать / скрыть
+function KeybindManager:Show()
+    if not self._gui then self:CreateGui() end
+    
+    self._overlay.Visible = true
+    self._mainFrame.Visible = true
+    self._mainFrame.Size = UDim2.fromOffset(520, 520)
+    self._mainFrame.BackgroundTransparency = 1
+    
+    Tween(self._mainFrame, { BackgroundTransparency = 0 }, A.Fast)
+    
+    self._visible = true
+end
+
+function KeybindManager:Hide()
+    if not self._mainFrame then return end
+    
+    Tween(self._mainFrame, { BackgroundTransparency = 1 }, A.Fast)
+    task.delay(A.Fast, function()
+        if self._mainFrame then
+            self._mainFrame.Visible = false
+            self._overlay.Visible = false
+        end
+    end)
+    
+    self._visible = false
+end
+
+function KeybindManager:Toggle()
+    if self._visible then self:Hide() else self:Show() end
+end
+
+function KeybindManager:Destroy()
+    for _, conn in ipairs(self._connections) do
+        conn:Disconnect()
+    end
+    if self._gui then self._gui:Destroy() end
+end
+
+-- Глобальный менеджер
+NebulaUI._KeybindManager = KeybindManager.new()
+
+-- ═══════════════════════════════════════════════════
+-- ADVANCED COLOR PICKER
+-- ═══════════════════════════════════════════════════
+
+local ColorPicker = {}
+ColorPicker.__index = ColorPicker
+
+function ColorPicker.new(options)
+    local self = setmetatable({}, ColorPicker)
+    
+    options = options or {}
+    
+    self.Color    = options.Default or Color3.fromRGB(124, 58, 237)
+    self.Alpha    = options.Alpha or 1
+    self.hasAlpha = options.ShowAlpha or false
+    self.Callback = options.Callback
+    self.Name     = options.Name or "Color"
+    
+    self._hue, self._sat, self._val = self.Color:ToHSV()
+    self._gui = nil
+    self._visible = false
+    
+    return self
+end
+
+function ColorPicker:_BuildGui()
+    local gui = CreateScreenGui("NebulaColorPicker")
+    self._gui = gui
+    
+    -- Затемнение
+    local overlay = Create("Frame", {
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.5,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 200,
+        Visible = false,
+        Parent = gui,
+    })
+    
+    self._overlay = overlay
+    
+    -- Основной контейнер
+    local pickerFrame = Create("Frame", {
+        Name = "ColorPicker",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = T.Background,
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(440, 540),
+        ZIndex = 201,
+        Visible = false,
+        Parent = gui,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 16),
+        Parent = pickerFrame,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.4,
+        Parent = pickerFrame,
+    })
+    
+    self._pickerFrame = pickerFrame
+    
+    -- ─── ЗАГОЛОВОК ────────────────────────────────
+    local header = Create("Frame", {
+        BackgroundColor3 = T.BackgroundLight,
+        Size = UDim2.new(1, 0, 0, 50),
+        ZIndex = 202,
+        Parent = pickerFrame,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 16),
+        Parent = header,
+    })
+    
+    Create("Frame", {
+        BackgroundColor3 = T.BackgroundLight,
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.new(1, 0, 0.5, 0),
+        ZIndex = 202,
+        Parent = header,
+    })
+    
+    Create("TextLabel", {
+        Font = F.SemiBold,
+        Text = "🎨  " .. self.Name,
+        TextColor3 = T.TextPrimary,
+        TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AnchorPoint = Vector2.new(0, 0.5),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 18, 0.5, 0),
+        Size = UDim2.new(1, -60, 0, 0),
+        ZIndex = 203,
+        Parent = header,
+    })
+    
+    local closeBtn = Create("TextButton", {
+        Font = F.Medium,
+        Text = "✕",
+        TextColor3 = T.TextMuted,
+        TextSize = 16,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -16, 0.5, 0),
+        Size = UDim2.fromOffset(28, 28),
+        ZIndex = 203,
+        Parent = header,
+    })
+    
+    closeBtn.MouseButton1Click:Connect(function() self:Hide() end)
+    
+    -- ─── SV SQUARE (Saturation/Value) ─────────────
+    local svContainer = Create("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 16, 0, 60),
+        Size = UDim2.new(1, -32, 0, 220),
+        ZIndex = 202,
+        Parent = pickerFrame,
+    })
+    
+    local svSquare = Create("ImageButton", {
+        Name = "SVSquare",
+        Image = "rbxassetid://2847371054", -- white gradient
+        BackgroundColor3 = HSVtoRGB(self._hue, 1, 1),
+        AutoButtonColor = false,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 203,
+        Parent = svContainer,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 12),
+        Parent = svSquare,
+    })
+    
+    -- Белый → прозрачный (горизонталь)
+    local svWhiteGrad = Create("Frame", {
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 204,
+        Parent = svSquare,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 12),
+        Parent = svWhiteGrad,
+    })
+    
+    Create("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
+        }),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+        Parent = svWhiteGrad,
+    })
+    
+    -- Чёрный снизу
+    local svBlackGrad = Create("Frame", {
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 205,
+        Parent = svSquare,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 12),
+        Parent = svBlackGrad,
+    })
+    
+    Create("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0)),
+        }),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(1, 0),
+        }),
+        Rotation = 270,
+        Parent = svBlackGrad,
+    })
+    
+    -- Курсор на SV Square
+    local svCursor = Create("Frame", {
+        Name = "SVCursor",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        Position = UDim2.new(self._sat, 0, 1 - self._val, 0),
+        Size = UDim2.fromOffset(16, 16),
+        ZIndex = 210,
+        Parent = svSquare,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = svCursor,
+    })
+    
+    Create("UIStroke", {
+        Color = Color3.fromRGB(255, 255, 255),
+        Thickness = 2,
+        Parent = svCursor,
+    })
+    
+    local svCursorInner = Create("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = HSVtoRGB(self._hue, self._sat, self._val),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.fromOffset(10, 10),
+        ZIndex = 211,
+        Parent = svCursor,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = svCursorInner,
+    })
+    
+    self._svSquare   = svSquare
+    self._svCursor   = svCursor
+    self._svCursorIn = svCursorInner
+    self._svWhite    = svWhiteGrad
+    
+    -- ─── HUE SLIDER ───────────────────────────────
+    local hueTrackFrame = Create("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 16, 0, 290),
+        Size = UDim2.new(1, -32, 0, 20),
+        ZIndex = 202,
+        Parent = pickerFrame,
+    })
+    
+    local hueTrack = Create("Frame", {
+        Name = "HueTrack",
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.new(1, 0, 0, 14),
+        ZIndex = 203,
+        Parent = hueTrackFrame,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = hueTrack,
+    })
+    
+    -- Радужный градиент
+    Create("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,     Color3.fromHSV(0,   1, 1)),
+            ColorSequenceKeypoint.new(0.166, Color3.fromHSV(0.166, 1, 1)),
+            ColorSequenceKeypoint.new(0.333, Color3.fromHSV(0.333, 1, 1)),
+            ColorSequenceKeypoint.new(0.5,   Color3.fromHSV(0.5,   1, 1)),
+            ColorSequenceKeypoint.new(0.666, Color3.fromHSV(0.666, 1, 1)),
+            ColorSequenceKeypoint.new(0.833, Color3.fromHSV(0.833, 1, 1)),
+            ColorSequenceKeypoint.new(1,     Color3.fromHSV(1,   1, 1)),
+        }),
+        Parent = hueTrack,
+    })
+    
+    -- Cursor
+    local hueThumb = Create("Frame", {
+        Name = "HueThumb",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        Position = UDim2.new(self._hue, 0, 0.5, 0),
+        Size = UDim2.fromOffset(20, 20),
+        ZIndex = 205,
+        Parent = hueTrack,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = hueThumb,
+    })
+    
+    Create("UIStroke", {
+        Color = Color3.fromRGB(200, 200, 200),
+        Thickness = 2,
+        Parent = hueThumb,
+    })
+    
+    local hueThumbColor = Create("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = HSVtoRGB(self._hue, 1, 1),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.fromOffset(12, 12),
+        ZIndex = 206,
+        Parent = hueThumb,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = hueThumbColor,
+    })
+    
+    self._hueTrack      = hueTrack
+    self._hueThumb      = hueThumb
+    self._hueThumbColor = hueThumbColor
+    
+    -- ─── ALPHA SLIDER ─────────────────────────────
+    local alphaTrackFrame
+    
+    if self.hasAlpha then
+        alphaTrackFrame = Create("Frame", {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 16, 0, 322),
+            Size = UDim2.new(1, -32, 0, 20),
+            ZIndex = 202,
+            Parent = pickerFrame,
+        })
+        
+        Create("TextLabel", {
+            Font = F.Medium,
+            Text = "A",
+            TextColor3 = T.TextMuted,
+            TextSize = 11,
+            AnchorPoint = Vector2.new(0, 0.5),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 0, 0.5, 0),
+            Size = UDim2.new(0, 0, 0, 14),
+            ZIndex = 203,
+            Parent = alphaTrackFrame,
+        })
+        
+        local alphaTrack = Create("Frame", {
+            Name = "AlphaTrack",
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Position = UDim2.new(0, 18, 0.5, 0),
+            Size = UDim2.new(1, -18, 0, 14),
+            ZIndex = 203,
+            Parent = alphaTrackFrame,
+        })
+        
+        Create("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = alphaTrack,
+        })
+        
+        -- Шахматный узор для альфа
+        Create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 200, 200)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 200, 200)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
+            }),
+            Parent = alphaTrack,
+        })
+        
+        local alphaColorLayer = Create("Frame", {
+            BackgroundColor3 = HSVtoRGB(self._hue, self._sat, self._val),
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = 204,
+            Parent = alphaTrack,
+        })
+        
+        Create("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = alphaColorLayer,
+        })
+        
+        Create("UIGradient", {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(1, 0),
+            }),
+            Parent = alphaColorLayer,
+        })
+        
+        local alphaThumb = Create("Frame", {
+            Name = "AlphaThumb",
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Position = UDim2.new(1 - self.Alpha, 0, 0.5, 0),
+            Size = UDim2.fromOffset(18, 18),
+            ZIndex = 206,
+            Parent = alphaTrack,
+        })
+        
+        Create("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = alphaThumb,
+        })
+        
+        Create("UIStroke", {
+            Color = Color3.fromRGB(200, 200, 200),
+            Thickness = 2,
+            Parent = alphaThumb,
+        })
+        
+        self._alphaTrack = alphaTrack
+        self._alphaThumb = alphaThumb
+        self._alphaLayer = alphaColorLayer
+        
+        -- Drag alpha
+        local alphaDragging = false
+        
+        alphaTrack.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                alphaDragging = true
+                self:_UpdateAlphaFromInput(input)
+            end
+        end)
+        
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                alphaDragging = false
+            end
+        end)
+        
+        UserInputService.InputChanged:Connect(function(input)
+            if alphaDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                self:_UpdateAlphaFromInput(input)
+            end
+        end)
+    end
+    
+    -- ─── INPUTS ───────────────────────────────────
+    local inputsY = self.hasAlpha and 352 or 320
+    
+    local inputsRow = Create("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 16, 0, inputsY),
+        Size = UDim2.new(1, -32, 0, 36),
+        ZIndex = 202,
+        Parent = pickerFrame,
+    })
+    
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 8),
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Parent = inputsRow,
+    })
+    
+    local function MakeInput(label, value, width, onChange)
+        local wrapper = Create("Frame", {
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, width, 0, 36),
+            ZIndex = 203,
+            Parent = inputsRow,
+        })
+        
+        Create("UIListLayout", {
+            Padding = UDim.new(0, 4),
+            FillDirection = Enum.FillDirection.Horizontal,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Parent = wrapper,
+        })
+        
+        Create("TextLabel", {
+            Font = F.SemiBold,
+            Text = label,
+            TextColor3 = T.TextMuted,
+            TextSize = 10,
+            AutomaticSize = Enum.AutomaticSize.XY,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, 0, 1, 0),
+            ZIndex = 204,
+            Parent = wrapper,
+        })
+        
+        local box = Create("TextBox", {
+            Font = F.Regular,
+            Text = tostring(value),
+            TextColor3 = T.TextPrimary,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            BackgroundColor3 = T.Surface,
+            ClearTextOnFocus = false,
+            LayoutOrder = 2,
+            Size = UDim2.new(0, width - 22, 1, 0),
+            ZIndex = 204,
+            Parent = wrapper,
+        })
+        
+        Create("UICorner", {
+            CornerRadius = UDim.new(0, 6),
+            Parent = box,
+        })
+        
+        Create("UIStroke", {
+            Color = T.Border,
+            Transparency = 0.7,
+            Parent = box,
+        })
+        
+        box.Focused:Connect(function()
+            Tween(box, { BackgroundColor3 = T.SurfaceHover }, A.Fast)
+        end)
+        
+        box.FocusLost:Connect(function()
+            Tween(box, { BackgroundColor3 = T.Surface }, A.Fast)
+            if onChange then onChange(box.Text) end
+        end)
+        
+        return box
+    end
+    
+    -- RGB inputs
+    local r = math.floor(self.Color.R * 255)
+    local g = math.floor(self.Color.G * 255)
+    local b = math.floor(self.Color.B * 255)
+    
+    local function UpdateFromRGB()
+        local rv = math.clamp(tonumber(self._rBox.Text) or 0, 0, 255)
+        local gv = math.clamp(tonumber(self._gBox.Text) or 0, 0, 255)
+        local bv = math.clamp(tonumber(self._bBox.Text) or 0, 0, 255)
+        
+        self._rBox.Text = rv
+        self._gBox.Text = gv
+        self._bBox.Text = bv
+        
+        local newColor = Color3.fromRGB(rv, gv, bv)
+        self._hue, self._sat, self._val = newColor:ToHSV()
+        
+        self:_UpdateVisuals()
+        self:_UpdatePreview()
+    end
+    
+    self._rBox = MakeInput("R", r, 72, function() UpdateFromRGB() end)
+    self._gBox = MakeInput("G", g, 72, function() UpdateFromRGB() end)
+    self._bBox = MakeInput("B", b, 72, function() UpdateFromRGB() end)
+    
+    -- HEX input
+    local hexWrapper = Create("Frame", {
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 100, 0, 36),
+        ZIndex = 203,
+        Parent = inputsRow,
+    })
+    
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 4),
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Parent = hexWrapper,
+    })
+    
+    Create("TextLabel", {
+        Font = F.SemiBold,
+        Text = "#",
+        TextColor3 = T.TextMuted,
+        TextSize = 12,
+        AutomaticSize = Enum.AutomaticSize.XY,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 0, 1, 0),
+        ZIndex = 204,
+        Parent = hexWrapper,
+    })
+    
+    local hexBox = Create("TextBox", {
+        Font = F.Regular,
+        Text = ColorToHex(self.Color):gsub("#", ""),
+        TextColor3 = T.TextPrimary,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        BackgroundColor3 = T.Surface,
+        ClearTextOnFocus = false,
+        LayoutOrder = 2,
+        Size = UDim2.new(0, 80, 1, 0),
+        ZIndex = 204,
+        Parent = hexWrapper,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = hexBox,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.7,
+        Parent = hexBox,
+    })
+    
+    hexBox.Focused:Connect(function()
+        Tween(hexBox, { BackgroundColor3 = T.SurfaceHover }, A.Fast)
+    end)
+    
+    hexBox.FocusLost:Connect(function()
+        Tween(hexBox, { BackgroundColor3 = T.Surface }, A.Fast)
+        
+        local hex = hexBox.Text:upper():gsub("[^0-9A-F]", "")
+        if #hex == 6 then
+            local newColor = HexToColor("#" .. hex)
+            self._hue, self._sat, self._val = newColor:ToHSV()
+            self:_UpdateVisuals()
+            self:_UpdatePreview()
+        end
+    end)
+    
+    self._hexBox = hexBox
+    
+    -- ─── PREVIEW COLORS ───────────────────────────
+    local previewY = inputsY + 50
+    
+    local previewRow = Create("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 16, 0, previewY),
+        Size = UDim2.new(1, -32, 0, 50),
+        ZIndex = 202,
+        Parent = pickerFrame,
+    })
+    
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = previewRow,
+    })
+    
+    -- Новый цвет
+    local newColorWrapper = Create("Frame", {
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0.5, -5, 1, 0),
+        ZIndex = 203,
+        Parent = previewRow,
+    })
+    
+    Create("TextLabel", {
+        Font = F.Medium,
+        Text = "Новый",
+        TextColor3 = T.TextMuted,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 14),
+        ZIndex = 204,
+        Parent = newColorWrapper,
+    })
+    
+    local newColorPreview = Create("Frame", {
+        BackgroundColor3 = self.Color,
+        BackgroundTransparency = 1 - self.Alpha,
+        Position = UDim2.new(0, 0, 0, 16),
+        Size = UDim2.new(1, 0, 1, -16),
+        ZIndex = 204,
+        Parent = newColorWrapper,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = newColorPreview,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.6,
+        Parent = newColorPreview,
+    })
+    
+    self._newPreview = newColorPreview
+    
+    -- Старый цвет
+    local oldColorWrapper = Create("Frame", {
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        Size = UDim2.new(0.5, -5, 1, 0),
+        ZIndex = 203,
+        Parent = previewRow,
+    })
+    
+    Create("TextLabel", {
+        Font = F.Medium,
+        Text = "Текущий",
+        TextColor3 = T.TextMuted,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 14),
+        ZIndex = 204,
+        Parent = oldColorWrapper,
+    })
+    
+    local oldColorPreview = Create("Frame", {
+        BackgroundColor3 = self.Color,
+        Position = UDim2.new(0, 0, 0, 16),
+        Size = UDim2.new(1, 0, 1, -16),
+        ZIndex = 204,
+        Parent = oldColorWrapper,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = oldColorPreview,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.6,
+        Parent = oldColorPreview,
+    })
+    
+    self._oldPreview = oldColorPreview
+    
+    -- ─── КНОПКИ ───────────────────────────────────
+    local btnY = previewY + 58
+    
+    local btnRow = Create("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 16, 0, btnY),
+        Size = UDim2.new(1, -32, 0, 40),
+        ZIndex = 202,
+        Parent = pickerFrame,
+    })
+    
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = btnRow,
+    })
+    
+    local confirmBtn = Create("TextButton", {
+        Font = F.SemiBold,
+        Text = "Применить",
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextSize = 13,
+        BackgroundColor3 = T.Accent,
+        AutoButtonColor = false,
+        Size = UDim2.new(0.6, -5, 1, 0),
+        ZIndex = 203,
+        Parent = btnRow,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = confirmBtn,
+    })
+    
+    local cancelBtn = Create("TextButton", {
+        Font = F.Medium,
+        Text = "Отмена",
+        TextColor3 = T.TextSecondary,
+        TextSize = 13,
+        BackgroundColor3 = T.Surface,
+        AutoButtonColor = false,
+        LayoutOrder = 2,
+        Size = UDim2.new(0.4, -5, 1, 0),
+        ZIndex = 203,
+        Parent = btnRow,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = cancelBtn,
+    })
+    
+    confirmBtn.MouseEnter:Connect(function()
+        Tween(confirmBtn, { BackgroundColor3 = T.AccentLight }, A.Fast)
+    end)
+    confirmBtn.MouseLeave:Connect(function()
+        Tween(confirmBtn, { BackgroundColor3 = T.Accent }, A.Fast)
+    end)
+    cancelBtn.MouseEnter:Connect(function()
+        Tween(cancelBtn, { BackgroundColor3 = T.SurfaceHover }, A.Fast)
+    end)
+    cancelBtn.MouseLeave:Connect(function()
+        Tween(cancelBtn, { BackgroundColor3 = T.Surface }, A.Fast)
+    end)
+    
+    confirmBtn.MouseButton1Click:Connect(function()
+        local finalColor = HSVtoRGB(self._hue, self._sat, self._val)
+        self.Color = finalColor
+        self._oldPreview.BackgroundColor3 = finalColor
+        
+        if self.Callback then
+            task.spawn(self.Callback, finalColor, self.Alpha)
+        end
+        
+        self:Hide()
+    end)
+    
+    cancelBtn.MouseButton1Click:Connect(function()
+        self:Hide()
+    end)
+    
+    -- ─── SV DRAG ──────────────────────────────────
+    local svDragging = false
+    
+    svSquare.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            svDragging = true
+            self:_UpdateSVFromInput(input)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            svDragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if svDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            self:_UpdateSVFromInput(input)
+        end
+    end)
+    
+    -- ─── HUE DRAG ─────────────────────────────────
+    local hueDragging = false
+    
+    hueTrack.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            hueDragging = true
+            self:_UpdateHueFromInput(input)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            hueDragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if hueDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            self:_UpdateHueFromInput(input)
+        end
+    end)
+    
+    self:_UpdateVisuals()
+end
+
+-- Обновление SV по вводу
+function ColorPicker:_UpdateSVFromInput(input)
+    if not self._svSquare then return end
+    
+    local pct = Vector2.new(
+        math.clamp((input.Position.X - self._svSquare.AbsolutePosition.X) / self._svSquare.AbsoluteSize.X, 0, 1),
+        math.clamp((input.Position.Y - self._svSquare.AbsolutePosition.Y) / self._svSquare.AbsoluteSize.Y, 0, 1)
+    )
+    
+    self._sat = pct.X
+    self._val = 1 - pct.Y
+    
+    self._svCursor.Position = UDim2.new(pct.X, 0, pct.Y, 0)
+    
+    local newColor = HSVtoRGB(self._hue, self._sat, self._val)
+    self._svCursorIn.BackgroundColor3 = newColor
+    
+    self:_UpdateInputs(newColor)
+    self:_UpdatePreview()
+end
+
+-- Обновление Hue по вводу
+function ColorPicker:_UpdateHueFromInput(input)
+    if not self._hueTrack then return end
+    
+    local pct = math.clamp(
+        (input.Position.X - self._hueTrack.AbsolutePosition.X) / self._hueTrack.AbsoluteSize.X,
+        0, 1
+    )
+    
+    self._hue = pct
+    
+    -- Обновляем thumb
+    self._hueThumb.Position = UDim2.new(pct, 0, 0.5, 0)
+    
+    local hueColor = HSVtoRGB(pct, 1, 1)
+    self._hueThumbColor.BackgroundColor3 = hueColor
+    
+    -- Обновляем SV square background
+    self._svSquare.BackgroundColor3 = hueColor
+    
+    -- Обновляем alpha layer если есть
+    if self._alphaLayer then
+        self._alphaLayer.BackgroundColor3 = HSVtoRGB(self._hue, self._sat, self._val)
+    end
+    
+    local newColor = HSVtoRGB(self._hue, self._sat, self._val)
+    self._svCursorIn.BackgroundColor3 = newColor
+    
+    self:_UpdateInputs(newColor)
+    self:_UpdatePreview()
+end
+
+-- Обновление Alpha по вводу
+function ColorPicker:_UpdateAlphaFromInput(input)
+    if not self._alphaTrack then return end
+    
+    local pct = math.clamp(
+        (input.Position.X - self._alphaTrack.AbsolutePosition.X) / self._alphaTrack.AbsoluteSize.X,
+        0, 1
+    )
+    
+    self.Alpha = pct
+    self._alphaThumb.Position = UDim2.new(pct, 0, 0.5, 0)
+    
+    self:_UpdatePreview()
+end
+
+-- Обновление инпутов
+function ColorPicker:_UpdateInputs(color)
+    if not color then
+        color = HSVtoRGB(self._hue, self._sat, self._val)
+    end
+    
+    local r = math.floor(color.R * 255 + 0.5)
+    local g = math.floor(color.G * 255 + 0.5)
+    local b = math.floor(color.B * 255 + 0.5)
+    
+    if self._rBox then self._rBox.Text = r end
+    if self._gBox then self._gBox.Text = g end
+    if self._bBox then self._bBox.Text = b end
+    if self._hexBox then self._hexBox.Text = string.format("%02X%02X%02X", r, g, b) end
+end
+
+-- Обновление preview
+function ColorPicker:_UpdatePreview()
+    local color = HSVtoRGB(self._hue, self._sat, self._val)
+    
+    if self._newPreview then
+        self._newPreview.BackgroundColor3 = color
+        if self.hasAlpha then
+            self._newPreview.BackgroundTransparency = 1 - self.Alpha
+        end
+    end
+end
+
+-- Обновление всех визуалов
+function ColorPicker:_UpdateVisuals()
+    if not self._svSquare then return end
+    
+    local hueColor = HSVtoRGB(self._hue, 1, 1)
+    
+    -- SV background
+    self._svSquare.BackgroundColor3 = hueColor
+    
+    -- SV cursor
+    self._svCursor.Position = UDim2.new(self._sat, 0, 1 - self._val, 0)
+    self._svCursorIn.BackgroundColor3 = HSVtoRGB(self._hue, self._sat, self._val)
+    
+    -- Hue thumb
+    self._hueThumb.Position = UDim2.new(self._hue, 0, 0.5, 0)
+    self._hueThumbColor.BackgroundColor3 = hueColor
+    
+    -- Alpha
+    if self._alphaLayer then
+        self._alphaLayer.BackgroundColor3 = HSVtoRGB(self._hue, self._sat, self._val)
+        self._alphaThumb.Position = UDim2.new(self.Alpha, 0, 0.5, 0)
+    end
+    
+    local color = HSVtoRGB(self._hue, self._sat, self._val)
+    self:_UpdateInputs(color)
+    self:_UpdatePreview()
+end
+
+-- Показать
+function ColorPicker:Show()
+    if not self._gui then self:_BuildGui() end
+    
+    self._oldPreview.BackgroundColor3 = self.Color
+    self._hue, self._sat, self._val = self.Color:ToHSV()
+    self:_UpdateVisuals()
+    
+    self._overlay.Visible = true
+    self._pickerFrame.Visible = true
+    self._pickerFrame.BackgroundTransparency = 1
+    self._pickerFrame.Position = UDim2.new(0.5, 0, 0.48, 0)
+    
+    Tween(self._pickerFrame, {
+        BackgroundTransparency = 0,
+        Position = UDim2.fromScale(0.5, 0.5),
+    }, A.Fast)
+    
+    self._visible = true
+end
+
+-- Скрыть
+function ColorPicker:Hide()
+    if not self._pickerFrame then return end
+    
+    Tween(self._pickerFrame, {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.5, 0, 0.52, 0),
+    }, A.Fast)
+    
+    task.delay(A.Fast + 0.05, function()
+        if self._pickerFrame then
+            self._pickerFrame.Visible = false
+            self._overlay.Visible = false
+        end
+    end)
+    
+    self._visible = false
+end
+
+function ColorPicker:SetColor(color)
+    self.Color = color
+    self._hue, self._sat, self._val = color:ToHSV()
+    if self._pickerFrame and self._pickerFrame.Visible then
+        self:_UpdateVisuals()
+    end
+end
+
+function ColorPicker:Destroy()
+    if self._gui then self._gui:Destroy() end
+end
+
+-- ═══════════════════════════════════════════════════
+-- THEME PICKER (выбор темы прямо в UI)
+-- ═══════════════════════════════════════════════════
+
+local ThemePicker = {}
+ThemePicker.__index = ThemePicker
+
+function ThemePicker.new(onThemeChanged)
+    local self = setmetatable({}, ThemePicker)
+    self._callback = onThemeChanged
+    self._gui = nil
+    self._visible = false
+    return self
+end
+
+function ThemePicker:_Build()
+    local gui = CreateScreenGui("NebulaThemePicker")
+    self._gui = gui
+    
+    local overlay = Create("Frame", {
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.5,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 300,
+        Visible = false,
+        Parent = gui,
+    })
+    self._overlay = overlay
+    
+    local frame = Create("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = T.Background,
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(380, 260),
+        ZIndex = 301,
+        Visible = false,
+        Parent = gui,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 16),
+        Parent = frame,
+    })
+    
+    Create("UIStroke", {
+        Color = T.Border,
+        Transparency = 0.4,
+        Parent = frame,
+    })
+    
+    self._frame = frame
+    
+    -- Заголовок
+    Create("TextLabel", {
+        Font = F.SemiBold,
+        Text = "🎨  Выбор темы",
+        TextColor3 = T.TextPrimary,
+        TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AnchorPoint = Vector2.new(0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 18, 0, 16),
+        Size = UDim2.new(1, -36, 0, 0),
+        ZIndex = 302,
+        Parent = frame,
+    })
+    
+    -- Описание
+    Create("TextLabel", {
+        Font = F.Medium,
+        Text = "Нажмите на цвет чтобы применить тему",
+        TextColor3 = T.TextMuted,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 18, 0, 38),
+        Size = UDim2.new(1, -36, 0, 0),
+        ZIndex = 302,
+        Parent = frame,
+    })
+    
+    -- Сетка тем
+    local themeGrid = Create("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 16, 0, 62),
+        Size = UDim2.new(1, -32, 0, 120),
+        ZIndex = 302,
+        Parent = frame,
+    })
+    
+    Create("UIGridLayout", {
+        CellPadding = UDim2.fromOffset(10, 10),
+        CellSize = UDim2.fromOffset(40, 40),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = themeGrid,
+    })
+    
+    local idx = 0
+    for themeName, themeColor in pairs(NebulaUI.Themes) do
+        idx += 1
+        
+        local themeBtn = Create("TextButton", {
+            Name = themeName,
+            BackgroundColor3 = themeColor,
+            LayoutOrder = idx,
+            Size = UDim2.fromOffset(40, 40),
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 303,
+            Parent = themeGrid,
+        })
+        
+        Create("UICorner", {
+            CornerRadius = UDim.new(0, 12),
+            Parent = themeBtn,
+        })
+        
+        -- Иконка проверки если выбрана
+        local checkMark = Create("TextLabel", {
+            Font = F.Bold,
+            Text = "✓",
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            TextSize = 16,
+            TextTransparency = 1,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(20, 20),
+            ZIndex = 304,
+            Parent = themeBtn,
+        })
+        
+        -- Название при наведении
+        local nameLabel = Create("TextLabel", {
+            Font = F.Medium,
+            Text = themeName,
+            TextColor3 = T.TextPrimary,
+            TextSize = 10,
+            AnchorPoint = Vector2.new(0.5, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, 0, 1, 2),
+            Size = UDim2.new(0, 60, 0, 0),
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Visible = false,
+            ZIndex = 304,
+            Parent = themeBtn,
+        })
+        
+        themeBtn.MouseEnter:Connect(function()
+            Tween(themeBtn, { Size = UDim2.fromOffset(46, 46) }, A.Fast)
+            nameLabel.Visible = true
+        end)
+        
+        themeBtn.MouseLeave:Connect(function()
+            Tween(themeBtn, { Size = UDim2.fromOffset(40, 40) }, A.Fast)
+            nameLabel.Visible = false
+        end)
+        
+        themeBtn.MouseButton1Click:Connect(function()
+            -- Сброс других
+            for _, child in ipairs(themeGrid:GetChildren()) do
+                if child:IsA("TextButton") then
+                    local cm = child:FindFirstChildOfClass("TextLabel")
+                    if cm then
+                        Tween(cm, { TextTransparency = 1 }, A.Fast)
+                    end
+                    Tween(child, { Size = UDim2.fromOffset(40, 40) }, A.Fast)
+                end
+            end
+            
+            -- Отмечаем выбранный
+            Tween(checkMark, { TextTransparency = 0 }, A.Fast)
+            Tween(themeBtn, { Size = UDim2.fromOffset(46, 46) }, A.Fast)
+            
+            -- Применяем тему
+            if self._callback then
+                task.spawn(self._callback, themeColor, themeName)
+            end
+        end)
+    end
+    
+    -- Custom Color кнопка
+    local customColorPicker = ColorPicker.new({
+        Name = "Custom Accent",
+        Default = T.Accent,
+        Callback = function(color)
+            if self._callback then
+                task.spawn(self._callback, color, "Custom")
+            end
+        end,
+    })
+    
+    local customBtn = Create("TextButton", {
+        Font = F.Medium,
+        Text = "🎨  Свой цвет",
+        TextColor3 = T.TextPrimary,
+        TextSize = 13,
+        BackgroundColor3 = T.Surface,
+        AutoButtonColor = false,
+        Position = UDim2.new(0, 16, 0, 190),
+        Size = UDim2.new(1, -32, 0, 38),
+        ZIndex = 302,
+        Parent = frame,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = customBtn,
+    })
+    
+    customBtn.MouseEnter:Connect(function()
+        Tween(customBtn, { BackgroundColor3 = T.SurfaceHover }, A.Fast)
+    end)
+    customBtn.MouseLeave:Connect(function()
+        Tween(customBtn, { BackgroundColor3 = T.Surface }, A.Fast)
+    end)
+    
+    customBtn.MouseButton1Click:Connect(function()
+        self:Hide()
+        customColorPicker:Show()
+    end)
+    
+    -- Закрыть
+    local closeBtn = Create("TextButton", {
+        Font = F.Medium,
+        Text = "Закрыть",
+        TextColor3 = T.TextSecondary,
+        TextSize = 13,
+        BackgroundColor3 = T.BackgroundLight,
+        AutoButtonColor = false,
+        Position = UDim2.new(0, 16, 1, -52),
+        Size = UDim2.new(1, -32, 0, 36),
+        ZIndex = 302,
+        Parent = frame,
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+        Parent = closeBtn,
+    })
+    
+    closeBtn.MouseButton1Click:Connect(function() self:Hide() end)
+end
+
+function ThemePicker:Show()
+    if not self._gui then self:_Build() end
+    
+    self._overlay.Visible = true
+    self._frame.Visible = true
+    self._frame.BackgroundTransparency = 1
+    
+    Tween(self._frame, { BackgroundTransparency = 0 }, A.Fast)
+    self._visible = true
+end
+
+function ThemePicker:Hide()
+    if not self._frame then return end
+    
+    Tween(self._frame, { BackgroundTransparency = 1 }, A.Fast)
+    task.delay(A.Fast + 0.05, function()
+        if self._frame then
+            self._frame.Visible = false
+            self._overlay.Visible = false
+        end
+    end)
+    
+    self._visible = false
+end
+
+function ThemePicker:Toggle()
+    if self._visible then self:Hide() else self:Show() end
+end
+
+-- ═══════════════════════════════════════════════════
+-- ПУБЛИЧНЫЙ API
+-- ═══════════════════════════════════════════════════
+
+-- Создать цветовой пикер
+function NebulaUI:CreateColorPicker(options)
+    return ColorPicker.new(options)
+end
+
+-- Создать тему пикер
+function NebulaUI:CreateThemePicker(callback)
+    return ThemePicker.new(callback)
+end
+
+-- Получить менеджер биндингов
+function NebulaUI:GetKeybindManager()
+    return self._KeybindManager
+end
+
+-- Зарегистрировать биндинг глобально
+function NebulaUI:RegisterKeybind(id, options)
+    return self._KeybindManager:Register(id, options)
+end
+
+-- Показать Keybind Manager
+function NebulaUI:ShowKeybindManager()
+    self._KeybindManager:Show()
+end
+
+-- Применить тему
+function NebulaUI:ApplyTheme(accentColor)
+    T.Accent      = accentColor
+    T.AccentLight = LerpColor(accentColor, Color3.fromRGB(255, 255, 255), 0.3)
+    T.AccentDark  = LerpColor(accentColor, Color3.fromRGB(0, 0, 0), 0.3)
+    T.AccentGlow  = LerpColor(accentColor, Color3.fromRGB(255, 255, 255), 0.5)
+    T.ToggleOn    = accentColor
+    T.SliderFill  = accentColor
+end
+
+-- ═══════════════════════════════════════════════════
+-- ДЕМО + ТЕСТ
+-- ═══════════════════════════════════════════════════
+
+function NebulaUI:Demo()
+    -- Keybind Manager
+    local KM = self:GetKeybindManager()
+    KM:CreateGui()
+    
+    -- Регистрируем биндинги
+    KM:Register("ToggleMenu", {
+        Name = "Открыть меню",
+        Description = "Показать/скрыть главное окно",
+        Key = Enum.KeyCode.RightControl,
+        Category = "Interface",
+        Callback = function(held)
+            print("Menu toggled!")
+        end,
+    })
+    
+    KM:Register("ESP", {
+        Name = "ESP Toggle",
+        Description = "Включить/выключить ESP",
+        Key = Enum.KeyCode.F1,
+        Category = "Cheats",
+        Callback = function()
+            print("ESP toggled!")
+        end,
+    })
+    
+    KM:Register("Aimbot", {
+        Name = "Aimbot Toggle",
+        Description = "Включить/выключить аимбот",
+        Key = Enum.KeyCode.F2,
+        Category = "Cheats",
+        Active = false,
+        Callback = function()
+            print("Aimbot toggled!")
+        end,
+    })
+    
+    KM:Register("Screenshot", {
+        Name = "Скриншот",
+        Description = "Сохранить скриншот",
+        Key = Enum.KeyCode.F12,
+        Category = "Utility",
+        Callback = function()
+            print("Screenshot!")
+        end,
+    })
+    
+    -- Color Picker standalone
+    local cp = self:CreateColorPicker({
+        Name = "Accent Color",
+        Default = Color3.fromRGB(124, 58, 237),
+        ShowAlpha = true,
+        Alpha = 1,
+        Callback = function(color, alpha)
+            print("Color:", color, "Alpha:", alpha)
+            self:ApplyTheme(color)
+        end,
+    })
+    
+    -- Theme Picker
+    local tp = self:CreateThemePicker(function(color, name)
+        print("Theme:", name, color)
+        self:ApplyTheme(color)
+    end)
+    
+    -- Горячие клавиши демо
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        
+        if input.KeyCode == Enum.KeyCode.F9 then
+            KM:Toggle()
+        elseif input.KeyCode == Enum.KeyCode.F10 then
+            cp:Show()
+        elseif input.KeyCode == Enum.KeyCode.F11 then
+            tp:Toggle()
+        end
+    end)
+    
+    print("==============================================")
+    print("  NEBULA UI v2.1 — DEMO")
+    print("  F9  → Keybind Manager")
+    print("  F10 → Color Picker")
+    print("  F11 → Theme Picker")
+    print("==============================================")
+    
+    return {
+        KeybindManager = KM,
+        ColorPicker    = cp,
+        ThemePicker    = tp,
+    }
+end
+
+return NebulaUI
