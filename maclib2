@@ -1,6 +1,5 @@
--- MacLib - UI Library for Exploits
+-- MacLib - Complete Exploit UI Library
 -- GitHub: https://github.com/YourUsername/MacLib
--- Made for exploit usage
 
 local MacLib = {
 	Options = {},
@@ -666,6 +665,17 @@ function MacLib:Window(Settings)
 					buttonInteract.Parent = button
 					buttonInteract.Text = ButtonFunctions.Settings.Name
 
+					local buttonImage = Instance.new("ImageLabel")
+					buttonImage.Name = "ButtonImage"
+					buttonImage.Image = assets.buttonImage
+					buttonImage.ImageTransparency = 0.5
+					buttonImage.AnchorPoint = Vector2.new(1, 0.5)
+					buttonImage.BackgroundTransparency = 1
+					buttonImage.BorderSizePixel = 0
+					buttonImage.Position = UDim2.fromScale(1, 0.5)
+					buttonImage.Size = UDim2.fromOffset(15, 15)
+					buttonImage.Parent = button
+
 					local TweenSettings = {
 						DefaultTransparency = 0.5,
 						HoverTransparency = 0.3,
@@ -677,9 +687,15 @@ function MacLib:Window(Settings)
 							Tween(buttonInteract, TweenInfo.new(0.2, TweenSettings.EasingStyle), {
 								TextTransparency = TweenSettings.DefaultTransparency
 							}):Play()
+							Tween(buttonImage, TweenInfo.new(0.2, TweenSettings.EasingStyle), {
+								ImageTransparency = TweenSettings.DefaultTransparency
+							}):Play()
 						elseif State == "Hover" then
 							Tween(buttonInteract, TweenInfo.new(0.2, TweenSettings.EasingStyle), {
 								TextTransparency = TweenSettings.HoverTransparency
+							}):Play()
+							Tween(buttonImage, TweenInfo.new(0.2, TweenSettings.EasingStyle), {
+								ImageTransparency = TweenSettings.HoverTransparency
 							}):Play()
 						end
 					end
@@ -1066,6 +1082,270 @@ function MacLib:Window(Settings)
 					return InputFunctions
 				end
 
+				function SectionFunctions:Dropdown(Settings, Flag)
+					local DropdownFunctions = { Settings = Settings, IgnoreConfig = false, Class = "Dropdown" }
+					local dropdown = Instance.new("Frame")
+					dropdown.Name = "Dropdown"
+					dropdown.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+					dropdown.BackgroundTransparency = 0.985
+					dropdown.BorderSizePixel = 0
+					dropdown.Size = UDim2.new(1, 0, 0, 38)
+					dropdown.Parent = section
+					dropdown.ClipsDescendants = true
+
+					local dropdownUIPadding = Instance.new("UIPadding")
+					dropdownUIPadding.PaddingLeft = UDim.new(0, 15)
+					dropdownUIPadding.PaddingRight = UDim.new(0, 15)
+					dropdownUIPadding.Parent = dropdown
+
+					local interact = Instance.new("TextButton")
+					interact.Name = "Interact"
+					interact.Text = ""
+					interact.BackgroundTransparency = 1
+					interact.BorderSizePixel = 0
+					interact.Size = UDim2.new(1, 0, 0, 38)
+					interact.Parent = dropdown
+
+					local dropdownName = Instance.new("TextLabel")
+					dropdownName.Name = "DropdownName"
+					dropdownName.FontFace = Font.new(assets.interFont)
+					dropdownName.Text = Settings.Default and (DropdownFunctions.Settings.Name .. " • " .. tostring(Settings.Default)) or (DropdownFunctions.Settings.Name .. "...")
+					dropdownName.TextColor3 = Color3.fromRGB(255, 255, 255)
+					dropdownName.TextSize = 13
+					dropdownName.TextTransparency = 0.5
+					dropdownName.TextXAlignment = Enum.TextXAlignment.Left
+					dropdownName.AutomaticSize = Enum.AutomaticSize.Y
+					dropdownName.BackgroundTransparency = 1
+					dropdownName.BorderSizePixel = 0
+					dropdownName.Size = UDim2.new(1, -20, 0, 38)
+					dropdownName.Parent = dropdown
+
+					local dropdownUIStroke = Instance.new("UIStroke")
+					dropdownUIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+					dropdownUIStroke.Color = Color3.fromRGB(255, 255, 255)
+					dropdownUIStroke.Transparency = 0.95
+					dropdownUIStroke.Parent = dropdown
+
+					local dropdownUICorner = Instance.new("UICorner")
+					dropdownUICorner.CornerRadius = UDim.new(0, 6)
+					dropdownUICorner.Parent = dropdown
+
+					local dropdownImage = Instance.new("ImageLabel")
+					dropdownImage.Name = "DropdownImage"
+					dropdownImage.Image = assets.dropdown
+					dropdownImage.ImageTransparency = 0.5
+					dropdownImage.AnchorPoint = Vector2.new(1, 0)
+					dropdownImage.BackgroundTransparency = 1
+					dropdownImage.BorderSizePixel = 0
+					dropdownImage.Position = UDim2.new(1, 0, 0, 12)
+					dropdownImage.Size = UDim2.fromOffset(14, 14)
+					dropdownImage.Parent = dropdown
+
+					local dropdownFrame = Instance.new("Frame")
+					dropdownFrame.Name = "DropdownFrame"
+					dropdownFrame.BackgroundTransparency = 1
+					dropdownFrame.BorderSizePixel = 0
+					dropdownFrame.ClipsDescendants = true
+					dropdownFrame.Size = UDim2.fromScale(1, 1)
+					dropdownFrame.Visible = false
+					dropdownFrame.AutomaticSize = Enum.AutomaticSize.Y
+
+					local dropdownFrameUIPadding = Instance.new("UIPadding")
+					dropdownFrameUIPadding.PaddingTop = UDim.new(0, 38)
+					dropdownFrameUIPadding.PaddingBottom = UDim.new(0, 10)
+					dropdownFrameUIPadding.Parent = dropdownFrame
+
+					local dropdownFrameUIListLayout = Instance.new("UIListLayout")
+					dropdownFrameUIListLayout.Padding = UDim.new(0, 5)
+					dropdownFrameUIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+					dropdownFrameUIListLayout.Parent = dropdownFrame
+
+					local OptionObjs = {}
+					local Selected = Settings.Default or ""
+
+					local function addOption(v)
+						local option = Instance.new("TextButton")
+						option.Name = "Option"
+						option.Text = ""
+						option.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+						option.BackgroundTransparency = 1
+						option.BorderSizePixel = 0
+						option.Size = UDim2.new(1, 0, 0, 30)
+
+						local optionUIPadding = Instance.new("UIPadding")
+						optionUIPadding.PaddingLeft = UDim.new(0, 15)
+						optionUIPadding.Parent = option
+
+						local optionName = Instance.new("TextLabel")
+						optionName.Name = "OptionName"
+						optionName.FontFace = Font.new(assets.interFont)
+						optionName.Text = v
+						optionName.TextColor3 = Color3.fromRGB(255, 255, 255)
+						optionName.TextSize = 13
+						optionName.TextTransparency = 0.5
+						optionName.TextXAlignment = Enum.TextXAlignment.Left
+						optionName.AnchorPoint = Vector2.new(0, 0.5)
+						optionName.AutomaticSize = Enum.AutomaticSize.XY
+						optionName.BackgroundTransparency = 1
+						optionName.BorderSizePixel = 0
+						optionName.Position = UDim2.fromScale(0, 0.5)
+						optionName.Parent = option
+
+						option.Parent = dropdownFrame
+
+						OptionObjs[v] = {
+							Button = option,
+							NameLabel = optionName
+						}
+
+						option.MouseButton1Click:Connect(function()
+							Selected = v
+							dropdownName.Text = DropdownFunctions.Settings.Name .. " • " .. v
+							Tween(dropdownImage, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+								Rotation = 0
+							}):Play()
+							dropdownFrame.Visible = false
+							
+							if DropdownFunctions.Settings.Callback then
+								task.spawn(function()
+									DropdownFunctions.Settings.Callback(v)
+								end)
+							end
+						end)
+					end
+
+					for _, v in pairs(Settings.Options or {}) do
+						addOption(v)
+					end
+
+					dropdownFrame.Parent = dropdown
+
+					local dropped = false
+
+					interact.MouseButton1Click:Connect(function()
+						dropped = not dropped
+						dropdownFrame.Visible = dropped
+						Tween(dropdownImage, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+							Rotation = dropped and -90 or 0
+						}):Play()
+					end)
+
+					function DropdownFunctions:UpdateSelection(value)
+						if OptionObjs[value] then
+							Selected = value
+							dropdownName.Text = DropdownFunctions.Settings.Name .. " • " .. value
+							if DropdownFunctions.Settings.Callback then
+								task.spawn(function()
+									DropdownFunctions.Settings.Callback(value)
+								end)
+							end
+						end
+					end
+
+					function DropdownFunctions:GetValue()
+						return Selected
+					end
+
+					if Flag then
+						MacLib.Options[Flag] = DropdownFunctions
+					end
+					return DropdownFunctions
+				end
+
+				function SectionFunctions:Keybind(Settings, Flag)
+					local KeybindFunctions = { Settings = Settings, IgnoreConfig = false, Class = "Keybind" }
+					local keybind = Instance.new("Frame")
+					keybind.Name = "Keybind"
+					keybind.AutomaticSize = Enum.AutomaticSize.Y
+					keybind.BackgroundTransparency = 1
+					keybind.BorderSizePixel = 0
+					keybind.Size = UDim2.new(1, 0, 0, 38)
+					keybind.Parent = section
+
+					local keybindName = Instance.new("TextLabel")
+					keybindName.Name = "KeybindName"
+					keybindName.FontFace = Font.new(assets.interFont)
+					keybindName.Text = KeybindFunctions.Settings.Name
+					keybindName.TextColor3 = Color3.fromRGB(255, 255, 255)
+					keybindName.TextSize = 13
+					keybindName.TextTransparency = 0.5
+					keybindName.TextXAlignment = Enum.TextXAlignment.Left
+					keybindName.AnchorPoint = Vector2.new(0, 0.5)
+					keybindName.AutomaticSize = Enum.AutomaticSize.XY
+					keybindName.BackgroundTransparency = 1
+					keybindName.BorderSizePixel = 0
+					keybindName.Position = UDim2.fromScale(0, 0.5)
+					keybindName.Parent = keybind
+
+					local binderBox = Instance.new("TextBox")
+					binderBox.Name = "BinderBox"
+					binderBox.FontFace = Font.new(assets.interFont)
+					binderBox.PlaceholderText = "..."
+					binderBox.Text = ""
+					binderBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+					binderBox.TextSize = 12
+					binderBox.TextTransparency = 0.1
+					binderBox.AnchorPoint = Vector2.new(1, 0.5)
+					binderBox.AutomaticSize = Enum.AutomaticSize.X
+					binderBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+					binderBox.BackgroundTransparency = 0.95
+					binderBox.BorderSizePixel = 0
+					binderBox.ClipsDescendants = true
+					binderBox.Position = UDim2.fromScale(1, 0.5)
+					binderBox.Size = UDim2.fromOffset(21, 21)
+
+					local binderBoxUICorner = Instance.new("UICorner")
+					binderBoxUICorner.CornerRadius = UDim.new(0, 4)
+					binderBoxUICorner.Parent = binderBox
+
+					local binderBoxUIStroke = Instance.new("UIStroke")
+					binderBoxUIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+					binderBoxUIStroke.Color = Color3.fromRGB(255, 255, 255)
+					binderBoxUIStroke.Transparency = 0.9
+					binderBoxUIStroke.Parent = binderBox
+
+					binderBox.Parent = keybind
+
+					local focused = false
+					local binded = Settings.Default or nil
+
+					if binded then
+						binderBox.Text = tostring(binded):match("KeyCode%.(.+)") or binded.Name or tostring(binded)
+					end
+
+					binderBox.Focused:Connect(function()
+						focused = true
+						binderBox.Text = ""
+					end)
+
+					binderBox.FocusLost:Connect(function()
+						focused = false
+					end)
+
+					UserInputService.InputBegan:Connect(function(input)
+						if focused then
+							if input.UserInputType == Enum.UserInputType.Keyboard then
+								binded = input.KeyCode
+								binderBox.Text = input.KeyCode.Name
+								binderBox:ReleaseFocus()
+							end
+						elseif (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == binded) or (input.UserInputType == binded) then
+							if KeybindFunctions.Settings.Callback then
+								KeybindFunctions.Settings.Callback(binded)
+							end
+						end
+					end)
+
+					function KeybindFunctions:GetBind()
+						return binded
+					end
+
+					if Flag then
+						MacLib.Options[Flag] = KeybindFunctions
+					end
+					return KeybindFunctions
+				end
+
 				function SectionFunctions:Label(Settings, Flag)
 					local LabelFunctions = {Settings = Settings}
 					local label = Instance.new("Frame")
@@ -1312,6 +1592,14 @@ function MacLib:Window(Settings)
 
 	function WindowFunctions:GetAcrylicBlurState()
 		return acrylicBlur
+	end
+
+	function WindowFunctions:SetNotificationsState(State)
+		notifications.Visible = State
+	end
+
+	function WindowFunctions:GetNotificationsState()
+		return notifications.Visible
 	end
 
 	macLib.Enabled = false
